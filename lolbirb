@@ -60,29 +60,35 @@ BEGIN {
 	FS=""
 	ORS=""
 	PI=3.14159265
-	# init - initial color (initialized by script)
-	# freq - frequency of color change (initialized by script)
-	# repeat - times animation is repeated (initialized by script)
-	# speed - FPS of animation (initialized by script)
-	# spread - how many units of rainbow are skipped per line (init by script)
-	factor = init * freq # keeps track of what color we should print
+	noscape="(\033\\[[0-9?;]*[A-Za-z]|.)" # Match common escape sequences
+	init += 0 # initial color (initialized by script)
+	freq += 0 # frequency of color change (initialized by script)
+	repeat += 0  # times animation is repeated (initialized by script)
+	speed += 0 # FPS of animation (initialized by script)
+	spread += 0  # how many units of rainbow are skipped per line (init by script)
+	# These + 0 will gurantee awk interprets these values as integers.
 }
 
 {
+	gsub("(\033\\[[34][0-9;]+[m])","") # Remove previous coloring
 	actual_repeats = repeat
 	if (/^[[:space:]]*$/) {
 		actual_repeats = 0 # Make empty lines print instantly
 	}
 	# Repeat each line repeat+1 times (for animation)
 	for (r=actual_repeats;r>=0;r--) {
-		for (i=1;i<=NF;i++) {
+		line=$0
+		i=0
+		while (match(line,noscape)) {
 			factor = (init + NR*spread + i - r) * freq
 			printf("\033[%d;2;%d;%d;%dm%s",
 			       fg,
 			       sin(factor)*127 + 128,
 			       sin(factor+(PI*2/3))*127 + 128,
 			       sin(factor+(PI*4/3))*127 + 128,
-			       $i)
+			       substr(line,RSTART,RLENGTH))
+			sub(noscape,"",line)
+			i++
 		}
 		# All but last repetition have to wait for the proper framerate.
 		# `exit 27` is a trick so we can be sure the user didn't press Ctrl+C
